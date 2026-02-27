@@ -27,3 +27,5 @@ results/plots/
 
 # Environment variables
 .env
+
+archive.zip
