@@ -1,0 +1,29 @@
+# Virtual Environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+
+# Model files
+models/*.pkl
+
+# Large datasets
+data/raw/
+data/processed/
+
+# Logs
+results/logs/
+
+# Plot images
+results/plots/
+
+# Environment variables
+.env
