@@ -10,6 +10,13 @@ def prepare_features(df):
     X = df.drop("Label", axis=1)
     y = df["Label"]
 
+    # Convert all columns to numeric
+    X = X.apply(pd.to_numeric, errors="coerce")
+
+    # Drop rows that became NaN after conversion
+    X = X.dropna()
+    y = y.loc[X.index]
+
     # Encode labels
     le = LabelEncoder()
     y_encoded = le.fit_transform(y)

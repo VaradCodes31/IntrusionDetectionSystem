@@ -1,6 +1,9 @@
 import os
 from numpy import rint
 import pandas as pd
+import sys
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 DATA_PATH = "data/raw"
 
@@ -27,9 +30,15 @@ def load_dataset():
 
 from data_cleaning import clean_data
 from feature_engineering import prepare_features
+from models.train_xgboost import train_model, save_model
 
 if __name__ == "__main__":
     df = load_dataset()
+
     df = clean_data(df)
 
     X_train, X_test, y_train, y_test, le = prepare_features(df)
+
+    model = train_model(X_train, y_train)
+
+    save_model(model)
