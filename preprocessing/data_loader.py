@@ -1,7 +1,13 @@
 import os
-from numpy import rint
-import pandas as pd
 import sys
+import pandas as pd
+
+# Project Root Path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from evaluation.metrics import evaluate_model
+from explainability.shap_global import shap_global_explanation
+from explainability.shap_local import shap_local_explanation
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -42,3 +48,7 @@ if __name__ == "__main__":
     model = train_model(X_train, y_train)
 
     save_model(model)
+
+    evaluate_model(model, X_test, y_test)
+    shap_global_explanation(model, X_train)
+    shap_local_explanation(model, X_test)
