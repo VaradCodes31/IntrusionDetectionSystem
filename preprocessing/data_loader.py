@@ -8,6 +8,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from evaluation.metrics import evaluate_model
 from explainability.shap_global import shap_global_explanation
 from explainability.shap_local import shap_local_explanation
+from explainability.explanation_profiles import attack_feature_profiling
+from experiments.stability_test import explanation_stability
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -52,3 +54,5 @@ if __name__ == "__main__":
     evaluate_model(model, X_test, y_test)
     shap_global_explanation(model, X_train)
     shap_local_explanation(model, X_test)
+    attack_feature_profiling(model, X_train, y_train, le)
+    explanation_stability(model, X_test)
