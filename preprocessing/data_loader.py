@@ -34,25 +34,3 @@ def load_dataset():
 
     print("All files loaded successfully.")
     return combined_df
-
-
-from data_cleaning import clean_data
-from feature_engineering import prepare_features
-from models.train_xgboost import train_model, save_model
-
-if __name__ == "__main__":
-    df = load_dataset()
-
-    df = clean_data(df)
-
-    X_train, X_test, y_train, y_test, le = prepare_features(df)
-
-    model = train_model(X_train, y_train)
-
-    save_model(model)
-
-    evaluate_model(model, X_test, y_test)
-    shap_global_explanation(model, X_train)
-    shap_local_explanation(model, X_test)
-    attack_feature_profiling(model, X_train, y_train, le)
-    explanation_stability(model, X_test)
