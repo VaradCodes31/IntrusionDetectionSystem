@@ -1,0 +1,15 @@
+{
+  "k": 4,
+  "features": [
+    "Init_Win_bytes_forward",
+    "min_seg_size_forward",
+    "Fwd Header Length",
+    "Flow IAT Min"
+  ],
+  "importances": [
+    0.2128891795873642,
+    0.15350404381752014,
+    0.1420566737651825,
+    0.13173110783100128
+  ]
+}

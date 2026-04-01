@@ -1,0 +1,121 @@
+{
+  "meta": {
+    "timestamp": "2026-04-01 23:54:17",
+    "n_qubits": 4,
+    "n_layers": 1,
+    "selected_features": [
+      "Init_Win_bytes_forward",
+      "min_seg_size_forward",
+      "Fwd Header Length",
+      "Flow IAT Min"
+    ],
+    "class_names": [
+      "BENIGN",
+      "DoS Hulk",
+      "PortScan"
+    ],
+    "train_samples": 75,
+    "test_samples": 25,
+    "qnn_train_cap": 300,
+    "qksvm_train_cap": 50,
+    "qksvm_test_cap": 20
+  },
+  "models": [
+    {
+      "model": "XGBoost (Classical)",
+      "accuracy": 100.0,
+      "f1_macro": 100.0,
+      "precision": 100.0,
+      "recall": 100.0,
+      "inference_latency_ms": 0.0839,
+      "confusion_matrix": [
+        [
+          20,
+          0,
+          0
+        ],
+        [
+          0,
+          3,
+          0
+        ],
+        [
+          0,
+          0,
+          2
+        ]
+      ],
+      "per_class_f1": {
+        "BENIGN": 100.0,
+        "DoS Hulk": 100.0,
+        "PortScan": 100.0
+      },
+      "train_time_s": 0.17
+    },
+    {
+      "model": "QNN (Hybrid PQC)",
+      "accuracy": 72.0,
+      "f1_macro": 27.91,
+      "precision": 26.09,
+      "recall": 30.0,
+      "inference_latency_ms": 0.0395,
+      "confusion_matrix": [
+        [
+          18,
+          0,
+          2
+        ],
+        [
+          3,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ]
+      ],
+      "per_class_f1": {
+        "BENIGN": 83.72,
+        "DoS Hulk": 0.0,
+        "PortScan": 0.0
+      },
+      "train_time_s": 0.63,
+      "train_samples_used": 75
+    },
+    {
+      "model": "QKSVM (Quantum Kernel)",
+      "accuracy": 90.0,
+      "f1_macro": 64.81,
+      "precision": 63.16,
+      "recall": 66.67,
+      "inference_latency_ms": 5.9273,
+      "confusion_matrix": [
+        [
+          17,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ]
+      ],
+      "per_class_f1": {
+        "BENIGN": 94.44,
+        "DoS Hulk": 100.0,
+        "PortScan": 0.0
+      },
+      "train_time_s": 0.05,
+      "train_samples_used": 50,
+      "test_samples_used": 20
+    }
+  ]
+}
