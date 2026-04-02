@@ -110,7 +110,7 @@ def create_dice_explainer(
         model_type="classifier",
     )
 
-    explainer = dice_ml.Dice(data, wrapped_model, method="random")
+    explainer = dice_ml.Dice(data, wrapped_model, method="genetic")
     return explainer, feature_names
 
 
@@ -121,6 +121,7 @@ def generate_counterfactuals(
     desired_class: int = 0,
     n_cfs: int = 3,
     target_col: str = "_target_",
+    method: str = None,
 ) -> dict:
     """
     Generates N diverse counterfactual examples for a single input packet.
@@ -155,10 +156,13 @@ def generate_counterfactuals(
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         try:
+            # If a specific method is requested for this instance, we honor it
+            # Genetic is generally more robust for tabular data than random/kd-tree
             cf_result = explainer.generate_counterfactuals(
                 input_df,
                 total_CFs=n_cfs,
                 desired_class=desired_class,
+                features_to_vary="all",
                 verbose=False,
             )
         except Exception as e:

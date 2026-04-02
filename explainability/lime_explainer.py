@@ -109,7 +109,9 @@ def lime_explain_instance(
     )
 
     feature_weights = exp.as_list(label=predicted_class_idx)
-    local_score = exp.local_pred[predicted_class_idx] if hasattr(exp, "local_pred") else None
+    # LIME's local_pred indices match the 'labels' parameter provided to explain_instance.
+    # Since we only passed (predicted_class_idx,), local_pred has size 1.
+    local_score = exp.local_pred[0] if hasattr(exp, "local_pred") and len(exp.local_pred) > 0 else None
     score_str = exp.score if hasattr(exp, "score") else None
 
     return {

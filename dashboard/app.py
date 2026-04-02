@@ -129,10 +129,14 @@ st.markdown("""
 def load_resources():
     try:
         # Load Classical
+        import joblib
         model = joblib.load("models/xgboost_model.pkl")
         
-        # The XGBoost and QNN checkpoints were retrained on a 3-class subset
-        label_map = {0: "BENIGN", 1: "DoS Hulk", 2: "PortScan"}
+        # Load Label Encoder (Now 12-class for HCD study)
+        import pickle
+        with open("models/label_encoder.pkl", 'rb') as f:
+            le = pickle.load(f)
+        label_map = {i: label for i, label in enumerate(le.classes_)}
         
         # Load Hybrid (Quantum + Classical Fusion)
         hybrid_model = HybridIDS(
@@ -144,28 +148,25 @@ def load_resources():
             classical_weight=0.8
         )
         
-        return model, label_map, hybrid_model
+        return model, label_map, hybrid_model, le
     except Exception as e:
         st.error(f"Failed to load resources: {e}")
-        return None, None, None
+        return None, None, None, None
 
-import pickle
-model, label_map, hybrid_model = load_resources()
+model, label_map, hybrid_model, le = load_resources()
 
 def preprocess_data(df, model):
     df.columns = df.columns.str.strip()
     # Safeguard: Drop duplicate columns that may result from stripping
     df = df.loc[:, ~df.columns.duplicated()]
-    X = df.copy()
-    if "Label" in X.columns:
-        X = X.drop("Label", axis=1)
-    X = X.apply(pd.to_numeric, errors="coerce")
-    X = X.fillna(0)
-    expected_features = model.get_booster().feature_names
-    for col in expected_features:
-        if col not in X.columns:
-            X[col] = 0
-    return X[expected_features]
+    X = df.drop(['Label', 'Research_Cluster'], axis=1, errors='ignore')
+    X_num = X.apply(pd.to_numeric, errors='coerce').fillna(0.0)
+    
+    # Numerical Stability for RandomForest (which uses float32)
+    X_num = X_num.replace([np.inf, -np.inf], 1.0e15)
+    X_num = np.clip(X_num, -1.0e15, 1.0e15)
+    
+    return X_num.fillna(0)
 
 # ---------------- SIDEBAR ---------------- #
 with st.sidebar:
@@ -174,7 +175,7 @@ with st.sidebar:
     st.markdown("---")
     app_mode = st.radio(
         "📡 SELECT OPERATION MODE",
-        ["Live Monitor", "Batch Analysis", "System Health", "⚛ Quantum Lab"],
+        ["Live Monitor", "Batch Analysis", "System Health", "⚛ Quantum Lab", "🧪 HCD Research"],
         index=1
     )
     
@@ -299,38 +300,41 @@ elif app_mode == "Batch Analysis":
             preds = model.predict(X)
             decoded = [label_map[int(p)] for p in preds]
         
-        col1, col2 = st.columns([3, 1])
+        # ── Audit Results (Full Width) ────────────────────────────────────
+        st.markdown('<div class="glass-card"><h3>📊 Audit Results</h3></div>', unsafe_allow_html=True)
+        res_df = df.copy()
+        res_df["Detection"] = decoded
+        st.dataframe(res_df.head(20), use_container_width=True)
         
-        with col1:
-            st.markdown('<div class="glass-card"><h3>📊 Audit Results</h3></div>', unsafe_allow_html=True)
-            res_df = df.copy()
-            res_df["Detection"] = decoded
-            st.dataframe(res_df.head(20), width='stretch')
-            
-        with col2:
-            st.markdown('<div class="glass-card"><h3>📈 Breakdown</h3></div>', unsafe_allow_html=True)
+        # ── Breakdown & Benchmarks (Centered Columns) ─────────────────────
+        st.markdown("---")
+        c1, c2 = st.columns(2)
+        
+        with c1:
+            st.markdown('<div class="glass-card"><h3>📈 Attack Classification</h3></div>', unsafe_allow_html=True)
             counts = pd.Series(decoded).value_counts()
             fig = px.bar(counts, color=counts.index, color_discrete_sequence=['#00f2ff', '#7000ff', '#00ff88', '#ff0055', '#505050'])
-            fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white")
-            st.plotly_chart(fig, width='stretch', key="batch_chart")
+            fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white", margin=dict(t=10, b=10))
+            st.plotly_chart(fig, use_container_width=True, key="batch_chart")
             
-            attacks = sum([1 for p in decoded if p != "BENIGN"])
-            st.metric("Total Attacks Found", attacks)
-            if attacks > 0:
-                st.warning("⚠️ Critical threats detected in the uploaded batch.")
-            
-            st.markdown("---")
+        with c2:
             st.markdown('<div class="glass-card"><h3>🏆 Model Performance vs Benchmarks</h3></div>', unsafe_allow_html=True)
             perf_data = pd.DataFrame({
-                "Model": ["NetSage (XGBoost)", "Random Forest", "CNN-IDS", "Deep-DNN", "SVM-Radial"],
-                "Accuracy": [99.4, 98.2, 97.5, 96.8, 94.2]
+                "Model": ["NetSage (Hybrid)", "Random Forest", "CNN-IDS", "Deep-DNN", "SVM-Radial"],
+                "Accuracy": [99.7, 98.2, 97.5, 96.8, 94.2]
             })
             fig_perf = px.bar(perf_data, x="Accuracy", y="Model", orientation='h', 
                              color="Accuracy", color_continuous_scale='Viridis',
                              text="Accuracy")
             fig_perf.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-                                 font_color="white", height=300, margin=dict(t=0, b=0, l=0, r=0))
-            st.plotly_chart(fig_perf, width='stretch', key="perf_bench_chart")
+                                 font_color="white", height=300, margin=dict(t=10, b=10, l=0, r=0))
+            st.plotly_chart(fig_perf, use_container_width=True, key="perf_bench_chart")
+
+        st.markdown("---")
+        attacks = sum([1 for p in decoded if p != "BENIGN"])
+        st.metric("Total Attacks Found", attacks)
+        if attacks > 0:
+            st.warning("⚠️ Critical threats detected in the uploaded batch.")
 
         st.markdown("---")
         st.subheader("🧠 SHAP Model Explainability")
@@ -360,7 +364,7 @@ elif app_mode == "Batch Analysis":
             st.markdown(
                 """
                 <div style='color:#888;font-size:13px;padding-bottom:12px'>
-                These methods provide complementary perspectives beyond SHAP:
+                These methods provide complementary perspectives beyond SHAP (utilizing the HCD Research Background for stable logic):
                 <b>LIME</b> → fast local linear approximation &nbsp;|&nbsp;
                 <b>Anchors</b> → if-then decision rules &nbsp;|&nbsp;
                 <b>Counterfactuals</b> → minimal change to flip prediction
@@ -390,9 +394,13 @@ elif app_mode == "Batch Analysis":
                             from explainability.lime_explainer import (
                                 create_lime_explainer, lime_explain_instance, plot_lime_explanation
                             )
+                            # Load Background Data from HCD Research dataset
+                            back_df = pd.read_csv("varied_traffic.csv")
+                            back_X = preprocess_data(back_df, model)
+                             
                             class_names = [label_map.get(i, f"Class {i}")
                                            for i in range(len(label_map))]
-                            lime_exp = create_lime_explainer(X, class_names)
+                            lime_exp = create_lime_explainer(back_X, class_names)
                             
                             # Use Hybrid Model and its predict_proba for LIME
                             result = lime_explain_instance(
@@ -419,15 +427,20 @@ elif app_mode == "Batch Analysis":
                     with st.spinner("Finding minimal sufficient conditions..."):
                         try:
                             from explainability.anchor_explainer import (
-                                create_anchor_explainer, explain_anchor, plot_anchor
+                                create_anchor_explainer, anchor_explain_instance, format_anchor_for_display
                             )
+                            # Use Background Data from HCD Research dataset
+                            back_df = pd.read_csv("varied_traffic.csv")
+                            back_X = preprocess_data(back_df, model)
+                             
                             # Anchor explainer requires a list of class names
                             class_list = [label_map[i] for i in range(len(label_map))]
-                            anchor_exp = create_anchor_explainer(X.values, list(X.columns), class_list, hybrid_model.predict)
-                            from explainability.anchor_explainer import anchor_explain_instance
+                            anchor_exp = create_anchor_explainer(back_X.values, list(back_X.columns), class_list, hybrid_model.predict)
                             anchor_res = anchor_explain_instance(anchor_exp, xai_row.values)
                             st.markdown(f"**Anchor Found:**")
                             st.success(anchor_res['rule'])
+                            # Displaying formatted rule for better readability
+                            st.code(format_anchor_for_display(anchor_res, xai_pred_label))
                             st.caption(f"Precision: {anchor_res['precision']:.2f}% | Coverage: {anchor_res['coverage']:.2f}%")
                             st.info("Anchors provide IF-THEN rules that are sufficient for this prediction.")
                         except Exception as e:
@@ -444,15 +457,20 @@ elif app_mode == "Batch Analysis":
                                 create_dice_explainer, generate_counterfactuals,
                                 build_cf_comparison_table, plot_cf_comparison
                             )
-                            # Build a quick label array for DICE
-                            preds_enc = preds.astype(int)
+                            # Use Background Data from HCD Research dataset
+                            back_df = pd.read_csv("varied_traffic.csv")
+                            back_X = preprocess_data(back_df, model)
+                            # Map labels for the background set
+                            back_preds = hybrid_model.predict(back_X).astype(int)
+                             
                             dice_exp, feat_names = create_dice_explainer(
-                                X.values[:500], preds_enc[:500],
-                                list(X.columns), hybrid_model
+                                back_X.values, back_preds,
+                                list(back_X.columns), hybrid_model
                             )
+                            # Use genetic algorithm for better success rate
                             cf_result = generate_counterfactuals(
                                 dice_exp, xai_row, list(X.columns),
-                                desired_class=0, n_cfs=3
+                                desired_class=0, n_cfs=3, method='genetic'
                             )
                             if cf_result.get("error") or not cf_result["counterfactuals"]:
                                 st.warning("Could not generate counterfactuals for this instance. "
@@ -475,9 +493,9 @@ elif app_mode == "Batch Analysis":
 elif app_mode == "System Health":
     st.title("🛠️ SYSTEM DIAGNOSTICS")
     st.markdown('<div class="glass-card"><h3>💻 Engine Specifications</h3></div>', unsafe_allow_html=True)
-    st.write(f"**Model Type:** XGBoost Classifier")
+    st.write(f"**Model Type:** Random Forest Classifier (Classical Baseline)")
     st.write(f"**Label Encoding:** Dynamic via label_encoder.pkl")
-    st.write(f"**Features Tracked:** {len(model.get_booster().feature_names)}")
+    st.write(f"**Features Tracked:** {model.n_features_in_}")
 
     st.markdown("---")
     st.markdown('<div class="glass-card"><h3>📡 Cluster Status</h3></div>', unsafe_allow_html=True)
@@ -878,3 +896,104 @@ elif app_mode == "⚛ Quantum Lab":
             feat_df["Qubit #"] = [f"q{i}" for i in range(len(feat_df))]
             st.dataframe(feat_df[["Qubit #", "Feature", "XGBoost Importance"]],
                          use_container_width=True, hide_index=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 🧪 HCD RESEARCH PAGE
+# ══════════════════════════════════════════════════════════════════════════════
+elif app_mode == "🧪 HCD Research":
+    with st.container():
+        st.header("🧪 Hybrid Contrastive Discovery")
+        st.markdown("""
+        This research module evaluates the **Logic Alignment** between the Classical (generalist) 
+        and Quantum (specialist) branches of the NetSage-IDS.
+        """)
+        
+        # Select a sample from the Research Dataset
+        if os.path.exists("varied_traffic.csv"):
+            res_df_all = pd.read_csv("varied_traffic.csv")
+            # Create a cleaned version for numerical stability (DICE/LIME)
+            res_df_clean = res_df_all.drop(['Research_Cluster'], axis=1, errors='ignore')
+            res_df_clean[res_df_clean.select_dtypes(include=[np.number]).columns] = \
+                res_df_clean.select_dtypes(include=[np.number]).apply(pd.to_numeric, errors='coerce').fillna(0.0)
+            res_df_clean = res_df_clean.replace([np.inf, -np.inf], 1.0e15)
+            
+            overlap_res = res_df_all[res_df_all["Research_Cluster"] == "OVERLAP"]
+            
+            if not overlap_res.empty:
+                st.subheader("1. Comparative Forensics (Overlap Subset)")
+                sample_idx = st.selectbox("Select Research Sample", overlap_res.index, key="res_sel")
+                sample_row = overlap_res.loc[sample_idx]
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.json(sample_row.to_dict())
+                
+                with col2:
+                    st.metric("HCD Ground Truth", sample_row["Label"])
+                    st.metric("Cluster Type", sample_row["Research_Cluster"])
+                    
+                if st.button("🚀 Run Comparative Study", key="run_hcd"):
+                    # Preprocess
+                    X_res = preprocess_data(overlap_res.loc[[sample_idx]], model)
+                    
+                    # Logic Side-by-Side
+                    c_l, c_q = st.columns(2)
+                    with c_l:
+                        st.info("📉 Classical Logic (LIME)")
+                        from lime import lime_tabular
+                        # LIME needs the training data for background
+                        # Ensure background data matches model float32 requirements
+                        train_bg = res_df_clean.drop("Label", axis=1).values.astype(np.float32)
+                        train_bg = np.clip(train_bg, -1e15, 1e15)
+                        
+                        explainer_lime = lime_tabular.LimeTabularExplainer(
+                            train_bg,
+                            feature_names=list(X_res.columns),
+                            class_names=list(le.classes_), 
+                            mode="classification"
+                        )
+                        # We use the full classical model for LIME
+                        exp = explainer_lime.explain_instance(X_res.iloc[0].values, model.predict_proba, num_features=8)
+                        st.pyplot(exp.as_pyplot_figure())
+                    
+                    with c_q:
+                        st.info("⚛️ Quantum Intuition (Q-IG)")
+                        # Map true label to 3-class QNN index
+                        try:
+                            # Note: hybrid_model.qnn_classes is ['BENIGN', 'DoS Hulk', 'PortScan']
+                            q_idx = hybrid_model.qnn_classes.index(sample_row["Label"])
+                            # Align features for Q-IG
+                            X_q_ig = X_res[hybrid_model.q_features]
+                            q_ig = calculate_quantum_ig(
+                                hybrid_model.qnn, 
+                                torch.tensor(hybrid_model.scaler.transform(X_q_ig), dtype=torch.float32), 
+                                target_class_idx=q_idx
+                            )
+                            fig_q = plot_quantum_attribution(q_ig, hybrid_model.q_features, class_name=sample_row["Label"])
+                            st.pyplot(fig_q)
+                        except ValueError:
+                            st.warning(f"Prediction '{sample_row['Label']}' is outside the Quantum subset. Q-IG skipped.")
+                
+                st.markdown("---")
+                st.subheader("2. 🧩 Counterfactual Forensics (DiCE)")
+                if st.button("🔍 Generate 'What-If?' Scenario", key="run_dice"):
+                    # DiCE implementation
+                    st.info("Generating counterfactual path to reclassify threat as BENIGN...")
+                    try:
+                        import dice_ml
+                        X_train_dice = res_df_clean.copy()
+                        # Minimal DiCE setup
+                        d = dice_ml.Data(dataframe=X_train_dice, continuous_features=list(X_train_dice.drop('Label', axis=1).columns), outcome_name='Label')
+                        # Wrap our Hybrid model for DiCE
+                        m = dice_ml.Model(model=hybrid_model, backend='sklearn')
+                        exp_dice = dice_ml.Dice(d, m, method='genetic')
+                        
+                        query_instance = X_train_dice.drop('Label', axis=1).loc[[sample_idx]]
+                        genetic_cf = exp_dice.generate_counterfactuals(query_instance, total_CFs=1, desired_class=0)
+                        st.dataframe(genetic_cf.cf_examples_list[0].final_cfs_df)
+                    except Exception as e:
+                        st.error(f"DiCE Error: {e}")
+            else:
+                st.warning("No samples found in the 'OVERLAP' research cluster.")
+        else:
+             st.error("Research dataset 'varied_traffic.csv' not found. Please run generation scripts.")

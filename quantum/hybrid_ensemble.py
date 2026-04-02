@@ -36,10 +36,13 @@ class HybridIDS:
         self.quantum_weight = 1.0 - classical_weight
         
         # 1. Load Classical Model
-        with open(classical_path, 'rb') as f:
-            self.classical_model = pickle.load(f)
+        import joblib
+        self.classical_model = joblib.load(classical_path)
             
-        # 2. Removed 15-class Label Encoder Load (Old structure)
+        # 2. Load Label Encoder (for 15-class mapping)
+        with open(label_encoder_path, 'rb') as f:
+            self.le = pickle.load(f)
+            
         # 3. Load QNN Configuration
         with open(features_path, 'r') as f:
             config = json.load(f)
@@ -75,27 +78,45 @@ class HybridIDS:
     def predict_proba(self, X):
         """
         Calculates weighted consensus probabilities.
-        Returns: (n_samples, n_classes) array of probabilities.
+        Returns: (n_samples, 15) array of probabilities.
         """
         # Ensure Dataframe
         if not isinstance(X, pd.DataFrame):
-            # This handles cases where LIME/Counterfactuals pass numpy arrays
-            # We must map them back to the original feature names.
             feature_names = self.classical_model.feature_names_in_
             X = pd.DataFrame(X, columns=feature_names)
 
-        # 1. Classical Probabilities
+        # 1. Classical Probabilities (15-class)
         p_classical = self.classical_model.predict_proba(X)
         
-        # 2. Quantum Probabilities
+        # 2. Quantum Probabilities (3-class)
         X_q = self._preprocess_for_quantum(X)
         with torch.no_grad():
             logits = self.qnn(X_q)
-            p_quantum = torch.softmax(logits, dim=1).numpy()
+            p_quantum_small = torch.softmax(logits, dim=1).numpy()
             
-        # Both are strictly (N, 3), so direct addition is mathematically valid
-        # 3. Decision Fusion
-        p_final = (self.classical_weight * p_classical) + (self.quantum_weight * p_quantum)
+        # Map 3-class QNN output to the full 15-class space
+        p_quantum = np.zeros_like(p_classical)
+        for i, class_label in enumerate(self.qnn_classes):
+             if class_label in self.le.classes_:
+                 class_idx = list(self.le.classes_).index(class_label)
+                 p_quantum[:, class_idx] = p_quantum_small[:, i]
+            
+        # 3. Weighted Consensus Logic
+        # For each sample, identify the top predicted class from XGBoost
+        p_final = np.zeros_like(p_classical)
+        for i in range(len(p_classical)):
+            top_class_idx = np.argmax(p_classical[i])
+            top_class_label = self.le.classes_[top_class_idx]
+            
+            if top_class_label in self.qnn_classes:
+                # Use Hybrid fusion (80/20)
+                p_final[i] = (self.classical_weight * p_classical[i]) + (self.quantum_weight * p_quantum[i])
+            else:
+                # Use 100% Classical (Out-of-Quantum-Subset)
+                p_final[i] = p_classical[i]
+                
+        # Re-normalize just in case
+        p_final = p_final / p_final.sum(axis=1, keepdims=True)
         return p_final
 
     def predict(self, X):
