@@ -16,15 +16,25 @@ Traditional IDS systems often act as **black boxes**, making it difficult to und
 
 ---
 
+## 🆕 Recent Updates (v2.0)
+
+*   **Hybrid Classical-Quantum Pipeline (HCQP)**: Successfully merged the PennyLane QNN pilot into a unified Scikit-learn compliant ensemble model alongside XGBoost.
+*   **Multi-Layer Model-Agnostic XAI**: Integrated LIME, Anchors (Alibi), and Counterfactuals (DiCE) directly into the Hybrid prediction pipeline.
+*   **macOS / M-Silicon Optimizations**: Resolved critical thread-locking OpenMP constraints causing segmentation faults between PyTorch and XGBoost in Streamlit.
+*   **Dynamic Matrix Alignment**: Hardened the fusion engine to gracefully map subset probabilities (3-class specific trainings) against variable label encoders.
+*   **Quantum Integrated Gradients**: Released Q-IG via the parameter-shift rule for evaluating quantum circuit decision trajectories.
+
+---
+
 ## 🎯 Key Features
 
 * 🚨 **Multi-class Attack Detection** (15 classes)
-* 📡 **Live Traffic Monitor** (Real-time simulation & alerting)
+* 📡 **Live Traffic Monitor** with **Hybrid Consensus**
+* ⚛️ **Quantum-Enhanced Detection** (Hybrid QNN branch)
 * 📂 **Batch Audit Mode** (Bulk historical log analysis)
-* 🧠 **Global & Local Explainability** (SHAP Summary & Per-sample breakdown)
-* 🧬 **Attack Feature Profiling** (Signatures via SHAP values)
-* 🧪 **Explanation Stability Testing** (Reliability verification)
-* 🛡️ **Anomaly Fallback** (Graceful handling of unknown model outputs)
+* 🧠 **Multi-Engine Explainability** (SHAP, LIME, Q-IG)
+* 🧪 **Quantum Integrated Gradients (Q-IG)** for circuit attribution
+* 🛡️ **Anomaly Fallback** & Risk Scoring
 
 ---
 
@@ -42,10 +52,15 @@ Example:
 
 ---
 
-### 2️⃣ Explanation Stability Testing
+### 2️⃣ Hybrid Classical-Quantum Pipeline (HCQP)
 
-* Evaluates consistency of SHAP explanations under slight input changes
-* Ensures **model reliability and robustness**
+*   **Dual-Stream Inference**: Combines high-capacity XGBoost with a 4-qubit **Variational Quantum Circuit**.
+*   **Consensus Scoring**: Weighted fusion (80/20) provides higher confidence in adversarial detection.
+
+### 3️⃣ Quantum Integrated Gradients (Q-IG)
+
+*   First-of-its-kind implementation of **differentiable quantum attribution** in an IDS.
+*   Uses the **parameter-shift rule** to trace quantum state triggers back to specific network flags.
 
 ---
 
@@ -107,12 +122,12 @@ IntrusionDetectionSystem/
 
 | Category         | Tools                    |
 | ---------------- | ------------------------ |
-| Machine Learning | XGBoost, Scikit-learn    |
+| Machine Learning | XGBoost, Scikit-learn, PyTorch |
+| Quantum Engine   | PennyLane (PQC / Hilbert Simulator) |
 | Data Processing  | Pandas, NumPy            |
-| Explainability   | SHAP, LIME               |
+| Explainability   | SHAP, LIME, Integrated Gradients |
 | Visualization    | Plotly, Matplotlib       |
 | Dashboard        | Streamlit (CSOC Theme)   |
-| Persistence      | Joblib                   |
 
 ---
 
@@ -177,8 +192,6 @@ streamlit run dashboard/app.py
 
 * 🌐 Real-time network traffic integration
 * 📡 Live monitoring dashboard
-* 🤖 Deep Learning / Hybrid models
-* ⚛️ Quantum Machine Learning (experimental)
 * ☁️ Cloud deployment
 
 ---

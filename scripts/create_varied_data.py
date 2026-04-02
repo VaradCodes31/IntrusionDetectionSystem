@@ -37,7 +37,7 @@ def generate_diverse_samples(num_samples=100):
         row_dict["Label"] = label
         data.append(row_dict)
 
-generate_diverse_samples(100)
+generate_diverse_samples(2000)
 df = pd.DataFrame(data)
 
 # Final clipping to ensure no negative values
