@@ -104,6 +104,26 @@ def create_dice_explainer(
                 X = X[self.feat_names].values
             return self.clf.predict(X)
 
+        def predict_proba(self, X):
+            if isinstance(X, pd.DataFrame):
+                X = X[self.feat_names].values
+            if hasattr(self.clf, "predict_proba"):
+                return self.clf.predict_proba(X)
+            # Fallback if no predict_proba exists
+            preds = self.predict(X)
+            try:
+                classes = self.clf.classes_
+            except AttributeError:
+                classes = np.unique(preds)
+            probas = np.zeros((len(X), len(classes)))
+            for i, p in enumerate(preds):
+                idx = np.where(classes == p)[0]
+                if len(idx) > 0:
+                    probas[i, idx[0]] = 1.0
+                else:
+                    probas[i, 0] = 1.0
+            return probas
+
     wrapped_model = dice_ml.Model(
         model=_SklearnWrapper(model, feature_names, target_col),
         backend="sklearn",
@@ -257,15 +277,6 @@ def plot_cf_comparison(
     """
     Renders a visual comparison of original vs counterfactual values
     for the changed features, in the CSOC aesthetic.
-
-    Args:
-        cf_result:         Output of generate_counterfactuals().
-        predicted_class:   Original predicted class label.
-        desired_class_name: Target class name (typically 'BENIGN').
-        save_path:         If provided, saves the figure to disk.
-
-    Returns:
-        matplotlib Figure.
     """
     df = build_cf_comparison_table(cf_result)
     if len(df) == 0 or "Info" in df.columns:
@@ -277,14 +288,31 @@ def plot_cf_comparison(
         ax.axis("off")
         return fig
 
+    cf_cols = [c for c in df.columns if c.startswith("CF-")]
+
+    # Filter to top 12 changed features by max difference to keep the chart readable
+    diffs = []
+    orig_vals_all = df["Original Value"].values
+    
+    for idx, row in df.iterrows():
+        orig = row["Original Value"]
+        # Handle cases where CF columns might not be present or valid
+        if not cf_cols:
+            diffs.append(0)
+            continue
+        max_d = max(abs(row[c] - orig) for c in cf_cols)
+        diffs.append(max_d)
+
+    df["max_diff"] = diffs
+    df = df.sort_values("max_diff", ascending=False).head(12)
+
     changed_feats = list(df["Feature"])
     orig_vals = list(df["Original Value"])
-    cf_cols = [c for c in df.columns if c.startswith("CF-")]
 
     x = np.arange(len(changed_feats))
     width = 0.8 / (1 + len(cf_cols))
 
-    fig, ax = plt.subplots(figsize=(max(8, len(changed_feats) * 1.2), 5))
+    fig, ax = plt.subplots(figsize=(max(8, len(changed_feats) * 0.8), 5))
     fig.patch.set_facecolor("#0a0b10")
     ax.set_facecolor("#0a0b10")
 
@@ -304,10 +332,10 @@ def plot_cf_comparison(
                color=cf_colors[i % len(cf_colors)], alpha=0.85, edgecolor="none")
 
     ax.set_xticks(x)
-    ax.set_xticklabels(changed_feats, rotation=30, ha="right", color="#c0c0c0", fontsize=8)
+    ax.set_xticklabels(changed_feats, rotation=45, ha="right", color="#c0c0c0", fontsize=9)
     ax.set_ylabel("Normalized Value", color="#00f2ff", fontsize=10)
     ax.set_title(
-        f"Counterfactual: What must change to reclassify from {predicted_class} → {desired_class_name}?",
+        f"Counterfactual: Top Changed Features ({predicted_class} → {desired_class_name})",
         color="#00f2ff", fontsize=11, fontweight="bold", pad=10,
     )
     ax.tick_params(colors="#888888")
