@@ -41,3 +41,9 @@ torch>=2.0.0               # PyTorch backend for QNN gradient computation
 # ── XAI Expansion Dependencies ───────────────────────────────────────────────
 alibi>=0.9.0               # Anchor explanations (rule-based XAI)
 dice-ml>=0.11              # DiCE counterfactual explanations
+
+# ── Web Transition Dependencies ──────────────────────────────────────────────
+fastapi>=0.110.0           # API Framework
+uvicorn>=0.27.0            # ASGI Server
+python-multipart>=0.0.9    # Form data support
+scapy>=2.5.0               # Live network packet capture

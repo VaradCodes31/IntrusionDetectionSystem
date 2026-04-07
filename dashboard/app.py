@@ -170,7 +170,7 @@ def preprocess_data(df, model):
 
 # ---------------- SIDEBAR ---------------- #
 with st.sidebar:
-    st.image("https://img.icons8.com/nolan/128/security-shield.png", width=100)
+    st.image("dashboard/netsage_logo.png", width=100)
     st.title("CSOC Terminal")
     st.markdown("---")
     app_mode = st.radio(
